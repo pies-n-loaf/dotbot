@@ -33,7 +33,6 @@ class Link(dotbot.Plugin):
             relink = defaults.get('relink', False)
             create = defaults.get('create', False)
             backup = defaults.get('backup', False)
-            force_backup = defaults.get('force-backup', False)
             use_glob = defaults.get('glob', False)
             test = defaults.get('if', None)
             ignore_missing = defaults.get('ignore-missing', False)
@@ -47,7 +46,6 @@ class Link(dotbot.Plugin):
                 relink = source.get('relink', relink)
                 create = source.get('create', create)
                 backup = source.get('backup', backup)
-                force_backup = source.get('force-backup', force_backup)
                 use_glob = source.get('glob', use_glob)
                 ignore_missing = source.get('ignore-missing', ignore_missing)
                 exclude_paths = source.get('exclude', exclude_paths)
@@ -77,7 +75,7 @@ class Link(dotbot.Plugin):
                     if create:
                         success &= self._create(destination)
                     if force or relink:
-                        success &= self._delete(path, destination, relative, canonical_path, force)
+                        success &= self._delete(path, destination, relative, canonical_path, backup, force)
                     success &= self._link(path, destination, relative, canonical_path, ignore_missing)
                 else:
                     self._log.lowinfo("Globs from '" + path + "': " + str(glob_results))
@@ -90,13 +88,11 @@ class Link(dotbot.Plugin):
                         if create:
                             success &= self._create(glob_link_destination)
                         if force or relink:
-                            success &= self._delete(glob_full_item, glob_link_destination, relative, canonical_path, force)
+                            success &= self._delete(glob_full_item, glob_link_destination, relative, canonical_path, backup, force)
                         success &= self._link(glob_full_item, glob_link_destination, relative, canonical_path, ignore_missing)
             else:
                 if create:
                     success &= self._create(destination)
-                if backup:
-                    success &= self._backup(path, backup, force_backup)
                 if not ignore_missing and not self._exists(os.path.join(self._context.base_directory(), path)):
                     # we seemingly check this twice (here and in _link) because
                     # if the file doesn't exist and force is True, we don't
@@ -107,7 +103,7 @@ class Link(dotbot.Plugin):
                         (destination, path))
                     continue
                 if force or relink:
-                    success &= self._delete(path, destination, relative, canonical_path, force)
+                    success &= self._delete(path, destination, relative, canonical_path, backup, force)
                 success &= self._link(path, destination, relative, canonical_path, ignore_missing)
         if success:
             self._log.info('All links have been set up')
@@ -176,10 +172,10 @@ class Link(dotbot.Plugin):
                 self._log.lowinfo('Creating directory %s' % parent)
         return success
 
-    def _backup(self, path, backup, force_backup):
+    def _backup(self, path, backup, force):
         success = True
         default_backup_dir = '~/.dotbot_backup/'  # TODO env var
-        if self._exists(path) and not self._is_link(path):
+        if backup and self._exists(path) and not self._is_link(path):
             self._log.debug('Try to create backup for %s' + path)
             filename = os.path.basename(path)
             try:
@@ -188,7 +184,7 @@ class Link(dotbot.Plugin):
                 self._log.lowinfo('Using default backup directory %s' % default_backup_dir)
                 backup_path = os.path.abspath(os.path.join(os.path.expanduser(default_backup_dir), filename))
 
-            if self._exists(backup_path) and not force_backup:
+            if self._exists(backup_path) and not force:
                 self._log.warning('Failed to create backup - file already exists at %s' % backup_path)
                 success = False
             else:
@@ -197,8 +193,11 @@ class Link(dotbot.Plugin):
                 self._log.lowinfo('Backing up %s' % path)
         return success
 
-    def _delete(self, source, path, relative, canonical_path, force):
+    def _delete(self, source, path, relative, canonical_path, backup, force):
         success = True
+        if backup:
+            success &= self._backup(path, backup, force)
+            force = success if force else force  # we don't want to force the deletion of this file if the backup failed
         source = os.path.join(self._context.base_directory(canonical_path=canonical_path), source)
         fullpath = os.path.expanduser(path)
         if relative:
