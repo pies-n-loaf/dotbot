@@ -21,4 +21,20 @@ class Restore(dotbot.Plugin):
     should run the restore as indicated in the config, or a full restore if not indicated
     ./install --full-restore
     for a complete restore. should we accept other params to complete the experience just in the CLI, if desired?
+
+    should this class inherit the Link plugin to take advantage of its functions? (probably)
     '''
+
+    _directive = 'restore'
+
+    def can_handle(self, directive):
+        return directive == self._directive
+
+    def handle(self, directive, data):
+        if directive != self._directive:
+            raise ValueError('Restore cannot handle directive %s' % directive)
+        return self._process_restore(data)
+
+    def _process_restore(self, data):
+        # TODO
+        return
