@@ -172,18 +172,25 @@ class Link(dotbot.Plugin):
                 self._log.lowinfo('Creating directory %s' % parent)
         return success
 
+    def _backup_path(self, path, backup):
+        '''
+        Determines which backup directory is being used, 
+        then returns the full abspath for the backup file.
+        '''
+        default_backup_dir = '~/.dotbot_backup/'  # TODO env var
+        filename = os.path.basename(path)
+        try:
+            backup_path = os.path.abspath(os.path.join(os.path.expanduser(backup), filename))
+        except TypeError:  # indicates `backup` was bool <True> instead of a path
+            self._log.lowinfo('Using default backup directory %s' % default_backup_dir)
+            backup_path = os.path.abspath(os.path.join(os.path.expanduser(default_backup_dir), filename))
+        return backup_path
+
     def _backup(self, path, backup, force):
         success = True
-        default_backup_dir = '~/.dotbot_backup/'  # TODO env var
         if backup and self._exists(path) and not self._is_link(path):
             self._log.debug('Try to create backup for %s' + path)
-            filename = os.path.basename(path)
-            try:
-                backup_path = os.path.abspath(os.path.join(os.path.expanduser(backup), filename))
-            except TypeError:  # indicates `backup` was bool <True> instead of a path
-                self._log.lowinfo('Using default backup directory %s' % default_backup_dir)
-                backup_path = os.path.abspath(os.path.join(os.path.expanduser(default_backup_dir), filename))
-
+            backup_path = self._backup_path(path, backup)
             if self._exists(backup_path) and not force:
                 self._log.warning('Failed to create backup - file already exists at %s' % backup_path)
                 success = False
