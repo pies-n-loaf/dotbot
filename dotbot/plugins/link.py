@@ -33,6 +33,7 @@ class Link(dotbot.Plugin):
             relink = defaults.get('relink', False)
             create = defaults.get('create', False)
             backup = defaults.get('backup', False)
+            force_backup = defaults.get('force-backup', False)
             use_glob = defaults.get('glob', False)
             test = defaults.get('if', None)
             ignore_missing = defaults.get('ignore-missing', False)
@@ -46,6 +47,7 @@ class Link(dotbot.Plugin):
                 relink = source.get('relink', relink)
                 create = source.get('create', create)
                 backup = source.get('backup', backup)
+                force_backup = source.get('force-backup', force_backup)
                 use_glob = source.get('glob', use_glob)
                 ignore_missing = source.get('ignore-missing', ignore_missing)
                 exclude_paths = source.get('exclude', exclude_paths)
@@ -94,7 +96,7 @@ class Link(dotbot.Plugin):
                 if create:
                     success &= self._create(destination)
                 if backup:
-                    success &= self._backup(path, backup, defaults.get('force-backup', False))
+                    success &= self._backup(path, backup, force_backup)
                 if not ignore_missing and not self._exists(os.path.join(self._context.base_directory(), path)):
                     # we seemingly check this twice (here and in _link) because
                     # if the file doesn't exist and force is True, we don't
