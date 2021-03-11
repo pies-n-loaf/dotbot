@@ -32,6 +32,7 @@ class Link(dotbot.Plugin):
             force = defaults.get('force', False)
             relink = defaults.get('relink', False)
             create = defaults.get('create', False)
+            backup = defaults.get('backup', False)
             use_glob = defaults.get('glob', False)
             test = defaults.get('if', None)
             ignore_missing = defaults.get('ignore-missing', False)
@@ -44,6 +45,7 @@ class Link(dotbot.Plugin):
                 force = source.get('force', force)
                 relink = source.get('relink', relink)
                 create = source.get('create', create)
+                backup = source.get('backup', backup)
                 use_glob = source.get('glob', use_glob)
                 ignore_missing = source.get('ignore-missing', ignore_missing)
                 exclude_paths = source.get('exclude', exclude_paths)
@@ -91,6 +93,8 @@ class Link(dotbot.Plugin):
             else:
                 if create:
                     success &= self._create(destination)
+                if backup:
+                    success &= self._backup(path, backup, defaults.get('force-backup', False))
                 if not ignore_missing and not self._exists(os.path.join(self._context.base_directory(), path)):
                     # we seemingly check this twice (here and in _link) because
                     # if the file doesn't exist and force is True, we don't
@@ -168,6 +172,27 @@ class Link(dotbot.Plugin):
                 success = False
             else:
                 self._log.lowinfo('Creating directory %s' % parent)
+        return success
+
+    def _backup(self, path, backup, force_backup):
+        success = True
+        default_backup_dir = '~/.dotbot_backup/'  # TODO env var
+        if self._exists(path) and not self._is_link(path):
+            self._log.debug('Try to create backup for %s' + path)
+            filename = os.path.basename(path)
+            try:
+                backup_path = os.path.abspath(os.path.join(os.path.expanduser(backup), filename))
+            except TypeError:  # indicates `backup` was bool <True> instead of a path
+                self._log.lowinfo('Using default backup directory %s' % default_backup_dir)
+                backup_path = os.path.abspath(os.path.join(os.path.expanduser(default_backup_dir), filename))
+
+            if self._exists(backup_path) and not force_backup:
+                self._log.warning('Failed to create backup - file already exists at %s' % backup_path)
+                success = False
+            else:
+                success &= self._create(backup_path)
+                os.replace(os.path.abspath(os.path.expanduser(path)), backup_path)
+                self._log.lowinfo('Backing up %s' % path)
         return success
 
     def _delete(self, source, path, relative, canonical_path, force):
